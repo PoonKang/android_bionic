@@ -204,9 +204,7 @@ ifeq ($(TARGET_ARCH),mips)
 	src/s_scalbln.c \
 	src/s_scalbn.c \
 	src/s_scalbnf.c \
-	src/e_sqrtf.c \
-	src/s_sin.c \
-	src/s_cos.c
+	src/e_sqrtf.c
 
   libm_common_includes = $(LOCAL_PATH)/mips
   # Need to build *rint* functions
