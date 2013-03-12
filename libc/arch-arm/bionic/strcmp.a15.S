@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012 ARM Ltd
+ * Copyright (c) 2013 ARM Ltd
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <machine/cpu-features.h>
-#include <machine/asm.h>
+#include "arm_asm.h"
 
 #ifdef __ARMEB__
 #define S2LOMEM lsl
@@ -83,10 +82,10 @@ strcmp:
         cmpcs   r2, r3
         beq     1b
         subs    r0, r2, r3
-        bx      lr
+        RETURN
 
 
-#elif (__ARM_ARCH__ >= 6)
+#elif (defined (_ISA_THUMB_2) || defined (_ISA_ARM_6))
       /* Use LDRD whenever possible.  */
 
 /* The main thing to look out for when comparing large blocks is that
@@ -335,7 +334,7 @@ doubleword_aligned_r0:
         bne     return_25
         ldr     r5, [r1], #4
         cmp     ip, #0
-        eor	r3, r2, r3
+        eor r3, r2, r3
         S2HIMEM r2, r5, #\offsethi
         it      eq
         cmpeq   r3, r2
@@ -440,9 +439,9 @@ compute_return_value:
         beq     1f
         /* Although s1 and s2 have identical initial alignment, they are
         not currently word aligned.  Rather than comparing bytes,
-	make sure that any bytes fetched from before the addressed
-	bytes are forced to 0xff.  Then they will always compare
-	equal.  */
+    make sure that any bytes fetched from before the addressed
+    bytes are forced to 0xff.  Then they will always compare
+    equal.  */
         eor     r2, r2, #3
         lsl     r2, r2, #3
         mvn     r3, MSB
@@ -504,7 +503,7 @@ compute_return_value:
 #ifndef __thumb2__
         ldr     r4, [sp], #4
 #endif
-        bx      lr
+        RETURN
 
 
 strcmp_unaligned:
@@ -519,40 +518,40 @@ strcmp_unaligned:
 #define LSHIFT <<
 #endif
 
-#define body(shift)							\
-  mask = 0xffffffffU RSHIFT shift;					\
-  w1 = *wp1++;								\
-  w2 = *wp2++;								\
-  do									\
-    {									\
-      t1 = w1 & mask;							\
-      if (__builtin_expect(t1 != w2 RSHIFT shift, 0))			\
-	{								\
-	  w2 RSHIFT= shift;						\
-	  break;							\
-	}								\
-      if (__builtin_expect(((w1 - b1) & ~w1) & (b1 << 7), 0))		\
-	{								\
-	  /* See comment in assembler below re syndrome on big-endian */\
-	  if ((((w1 - b1) & ~w1) & (b1 << 7)) & mask)			\
-	    w2 RSHIFT= shift;						\
-	  else								\
-	    {								\
-	      w2 = *wp2;						\
-	      t1 = w1 RSHIFT (32 - shift);				\
-	      w2 = (w2 LSHIFT (32 - shift)) RSHIFT (32 - shift);	\
-	    }								\
-	  break;							\
-	}								\
-      w2 = *wp2++;							\
-      t1 ^= w1;								\
-      if (__builtin_expect(t1 != w2 LSHIFT (32 - shift), 0))		\
-	{								\
-	  t1 = w1 >> (32 - shift);					\
-	  w2 = (w2 << (32 - shift)) RSHIFT (32 - shift);		\
-	  break;							\
-	}								\
-      w1 = *wp1++;							\
+#define body(shift)                         \
+  mask = 0xffffffffU RSHIFT shift;                  \
+  w1 = *wp1++;                              \
+  w2 = *wp2++;                              \
+  do                                    \
+    {                                   \
+      t1 = w1 & mask;                           \
+      if (__builtin_expect(t1 != w2 RSHIFT shift, 0))           \
+    {                               \
+      w2 RSHIFT= shift;                     \
+      break;                            \
+    }                               \
+      if (__builtin_expect(((w1 - b1) & ~w1) & (b1 << 7), 0))       \
+    {                               \
+      /* See comment in assembler below re syndrome on big-endian */\
+      if ((((w1 - b1) & ~w1) & (b1 << 7)) & mask)           \
+        w2 RSHIFT= shift;                       \
+      else                              \
+        {                               \
+          w2 = *wp2;                        \
+          t1 = w1 RSHIFT (32 - shift);              \
+          w2 = (w2 LSHIFT (32 - shift)) RSHIFT (32 - shift);    \
+        }                               \
+      break;                            \
+    }                               \
+      w2 = *wp2++;                          \
+      t1 ^= w1;                             \
+      if (__builtin_expect(t1 != w2 LSHIFT (32 - shift), 0))        \
+    {                               \
+      t1 = w1 >> (32 - shift);                  \
+      w2 = (w2 << (32 - shift)) RSHIFT (32 - shift);        \
+      break;                            \
+    }                               \
+      w1 = *wp1++;                          \
     } while (1)
 
   const unsigned* wp1;
@@ -569,7 +568,7 @@ strcmp_unaligned:
       c1 = *s1++;
       c2 = *s2++;
       if (c1 == 0 || c1 != c2)
-	return c1 - (int)c2;
+    return c1 - (int)c2;
     }
   wp1 = (unsigned*) (((unsigned)s1) & ~3);
   wp2 = (unsigned*) (((unsigned)s2) & ~3);
@@ -622,7 +621,7 @@ strcmp_unaligned:
         cmpcs   r2, r3
         beq     1b
         sub     r0, r2, r3
-        bx      lr
+        RETURN
 
 2:
         str     r5, [sp, #-4]!
@@ -766,7 +765,7 @@ strcmp_unaligned:
         //ldmfd   sp!, {r4, r5}
         ldr     r4, [sp], #4
         ldr     r5, [sp], #4
-        bx      lr
+        RETURN
 8:
         and     r2, t1, LSB
         and     r0, w2, LSB
@@ -781,7 +780,7 @@ strcmp_unaligned:
         //ldmfd   sp!, {r4, r5}
         ldr     r4, [sp], #4
         ldr     r5, [sp], #4
-        bx      lr
+        RETURN
 
 #endif /* !(defined (_ISA_THUMB_2) || defined (_ISA_ARM_6)
             defined (__OPTIMIZE_SIZE__) || defined (PREFER_SIZE_OVER_SPEED) ||
